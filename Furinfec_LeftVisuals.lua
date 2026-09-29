@@ -3649,3 +3649,162 @@ Library:OnUnload(function()
 end)
 
 print("[Abyssall] Floors Tab 3 loaded.")
+--==================================================
+-- AUTO ENERGY
+-- Automation box - Tab 3
+--==================================================
+
+Automation:AddToggle("AutoEnergy", {
+    Text = "Auto Energy",
+    Default = false,
+
+    Callback = function(Value)
+        if not Value then
+            return
+        end
+
+        task.spawn(function()
+            while Library.Toggles.AutoEnergy.Value do
+
+                local Characters = workspace:FindFirstChild("Characters")
+                local Character = Characters
+                    and Characters:FindFirstChild(LocalPlayer.Name)
+
+                local Status = Character
+                    and Character:FindFirstChild("Status")
+
+                local CurrentEnergy =
+                    Status and Status:FindFirstChild("CurrentEnergy")
+
+                local MaxEnergy =
+                    Status and Status:FindFirstChild("MaxEnergy")
+
+                local Current =
+                    CurrentEnergy and tonumber(CurrentEnergy.Value)
+
+                local Max =
+                    MaxEnergy and tonumber(MaxEnergy.Value)
+
+                if Current and Max and Max > 0 then
+
+                    -- Chỉ kích hoạt khi trên 90%
+                    if Current > (Max * 0.90) then
+
+                        local Root =
+                            LocalPlayer.Character
+                            and LocalPlayer.Character:FindFirstChild(
+                                "HumanoidRootPart"
+                            )
+
+                        if Root then
+
+                            local Camera =
+                                workspace.CurrentCamera
+
+                            local args = {
+                                [1] = {
+                                    ["Camera"] = Camera.CFrame,
+
+                                    ["SkillId"] = "2",
+
+                                    ["Began"] = false,
+
+                                    ["CFrame"] =
+                                        Root.CFrame,
+
+                                    ["Typ\208\181"] = 1,
+
+                                    ["Aim"] =
+                                        Root.Position
+                                        + Camera.CFrame.LookVector * 100
+                                }
+                            }
+
+                            pcall(function()
+                                ReplicatedStorage
+                                    :WaitForChild("Remotes")
+                                    :WaitForChild("SkillRemote")
+                                    :FireServer(unpack(args))
+                            end)
+                        end
+
+                        task.wait(0.05)
+
+                    else
+                        -- Dưới hoặc bằng 90%:
+                        -- KHÔNG gửi false / không kích hoạt gì.
+                        task.wait(0.1)
+                    end
+
+                else
+                    task.wait(0.2)
+                end
+            end
+        end)
+    end,
+})
+--==================================================
+-- AUTO SKILL 10
+-- Automation
+--==================================================
+
+Automation:AddToggle("AutoSkill10", {
+    Text = "Auto form work",
+    Default = false,
+
+    Callback = function(Value)
+        if not Value then
+            return
+        end
+
+        task.spawn(function()
+            while Library.Toggles.AutoSkill10.Value do
+
+                local characters = workspace:FindFirstChild("Characters")
+                local character = characters
+                    and characters:FindFirstChild(LocalPlayer.Name)
+
+                -- Kiểm tra Mode có tồn tại hay không
+                local mode = character
+                    and character:FindFirstChild("Mode")
+
+                -- Có Mode -> KHÔNG kích hoạt
+                -- Không có Mode -> kích hoạt Skill 10
+                if not mode then
+
+                    local root = LocalPlayer.Character
+                        and LocalPlayer.Character:FindFirstChild(
+                            "HumanoidRootPart"
+                        )
+
+                    if root then
+                        local camera = workspace.CurrentCamera
+
+                        local args = {
+                            [1] = {
+                                ["Camera"] = camera.CFrame,
+                                ["SkillId"] = "10",
+                                ["Began"] = true,
+                                ["CFrame"] = root.CFrame,
+                                ["Typ\208\181"] = 1,
+                                ["Aim"] =
+                                    root.Position
+                                    + camera.CFrame.LookVector * 100
+                            }
+                        }
+
+                        pcall(function()
+                            ReplicatedStorage
+                                :WaitForChild("Remotes")
+                                :WaitForChild("SkillRemote")
+                                :FireServer(unpack(args))
+                        end)
+                    end
+                end
+
+                -- Check mỗi 1.5 giây
+                task.wait(1.5)
+            end
+        end)
+    end,
+})
