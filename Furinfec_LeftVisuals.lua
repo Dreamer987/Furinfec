@@ -2525,3 +2525,1127 @@ ConnectFolder(
 )
 
 print("[Abyssall] Visuals Tab 2 loaded.")
+--==========================================================
+-- TAB 3 : FLOORS
+--==========================================================
+
+local Tab3 = Window:AddTab("Floors", "globe")
+
+local FloorsLeft = Tab3:AddLeftGroupbox("Visuals")
+local FloorsBypass = Tab3:AddLeftGroupbox("Bypass")
+
+local FloorsAuto = Tab3:AddRightGroupbox("Automation")
+local FloorsCompletion = Tab3:AddRightGroupbox("Completion")
+
+--==========================================================
+-- SERVICES
+--==========================================================
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LP = Players.LocalPlayer
+
+local WorldMobs = workspace:FindFirstChild("World Mobs")
+local CharactersFolder = workspace:FindFirstChild("Characters")
+
+local SkillManagerRE =
+    ReplicatedStorage
+    :WaitForChild("Packages")
+    :WaitForChild("_Index")
+    :WaitForChild("sleitnick_knit@1.4.7")
+    :WaitForChild("knit")
+    :WaitForChild("Services")
+    :WaitForChild("SkillManager")
+    :WaitForChild("RE")
+
+local LockedOnChanged =
+    SkillManagerRE:WaitForChild("LockedOnChanged")
+
+local SkillRemote =
+    ReplicatedStorage
+    :WaitForChild("Remotes")
+    :WaitForChild("SkillRemote")
+
+--==========================================================
+-- HELPERS
+--==========================================================
+
+local function GetRoot(obj)
+    if not obj then
+        return nil
+    end
+
+    if obj:IsA("BasePart") then
+        return obj
+    end
+
+    if obj:IsA("Model") then
+        return obj:FindFirstChild("HumanoidRootPart")
+            or obj.PrimaryPart
+            or obj:FindFirstChildWhichIsA("BasePart")
+    end
+
+    return obj:FindFirstChildWhichIsA("BasePart")
+end
+
+local function GetCharacterRoot()
+    local char = LP.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function GetNearestTarget(range)
+    local root = GetCharacterRoot()
+    if not root then
+        return nil, math.huge
+    end
+
+    local nearest = nil
+    local nearestDistance = range
+
+    -- MOBS
+    local mobs = workspace:FindFirstChild("World Mobs")
+
+    if mobs then
+        for _, folder in ipairs(mobs:GetChildren()) do
+            for _, mob in ipairs(folder:GetChildren()) do
+                if mob:IsA("Model") then
+                    local mobRoot = GetRoot(mob)
+
+                    if mobRoot then
+                        local distance =
+                            (mobRoot.Position - root.Position).Magnitude
+
+                        if distance <= nearestDistance then
+                            nearest = mob
+                            nearestDistance = distance
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- PLAYERS
+    local chars = workspace:FindFirstChild("Characters")
+
+    if chars then
+        for _, character in ipairs(chars:GetChildren()) do
+            if character.Name ~= LP.Name then
+                local charRoot = GetRoot(character)
+
+                if charRoot then
+                    local distance =
+                        (charRoot.Position - root.Position).Magnitude
+
+                    if distance <= nearestDistance then
+                        nearest = character
+                        nearestDistance = distance
+                    end
+                end
+            end
+        end
+    end
+
+    return nearest, nearestDistance
+end
+
+--==========================================================
+-- LOCK ON AURA
+--==========================================================
+
+local LockRange = 40
+local LockInterval = 0.05
+
+local RangeParts = {}
+
+local function DestroyRange()
+    for _, part in ipairs(RangeParts) do
+        if part then
+            part:Destroy()
+        end
+    end
+
+    table.clear(RangeParts)
+end
+
+local function CreateRange()
+    DestroyRange()
+
+    local segments = 48
+
+    for i = 1, segments do
+        local part = Instance.new("Part")
+        part.Name = "LockOnRange"
+        part.Anchored = true
+        part.CanCollide = false
+        part.CanQuery = false
+        part.CanTouch = false
+        part.Material = Enum.Material.Neon
+        part.Transparency = 0.25
+        part.Size = Vector3.new(
+            0.18,
+            0.08,
+            (2 * math.pi * LockRange) / segments
+        )
+
+        part.Parent = workspace
+
+        table.insert(RangeParts, part)
+    end
+end
+
+local function UpdateRange()
+    if #RangeParts == 0 then
+        CreateRange()
+    end
+
+    local root = GetCharacterRoot()
+
+    if not root then
+        return
+    end
+
+    local segments = #RangeParts
+
+    for i, part in ipairs(RangeParts) do
+        local angle =
+            ((i - 1) / segments) * math.pi * 2
+
+        local pos =
+            root.Position
+            + Vector3.new(
+                math.cos(angle) * LockRange,
+                -2.5,
+                math.sin(angle) * LockRange
+            )
+
+        part.CFrame =
+            CFrame.new(pos)
+            * CFrame.Angles(0, -angle, 0)
+    end
+end
+
+FloorsLeft:AddToggle("LockOnAura", {
+    Text = "Lock On Aura",
+    Default = false,
+
+    Callback = function(Value)
+
+        if Value then
+            CreateRange()
+
+            task.spawn(function()
+                while Library.Toggles.LockOnAura.Value do
+
+                    local target =
+                        GetNearestTarget(LockRange)
+
+                    if target then
+                        pcall(function()
+                            LockedOnChanged:FireServer(target)
+                        end)
+                    end
+
+                    task.wait(LockInterval)
+                end
+            end)
+
+        else
+            DestroyRange()
+        end
+    end,
+})
+
+FloorsLeft:AddSlider("LockRange", {
+    Text = "Range",
+    Default = 40,
+    Min = 5,
+    Max = 300,
+    Rounding = 0,
+
+    Callback = function(Value)
+        LockRange = Value
+
+        if Library.Toggles.LockOnAura
+            and Library.Toggles.LockOnAura.Value then
+
+            CreateRange()
+        end
+    end,
+})
+
+FloorsLeft:AddSlider("LockInterval", {
+    Text = "Lock Interval",
+    Default = 0.05,
+    Min = 0.01,
+    Max = 1,
+    Rounding = 2,
+    Suffix = "s",
+
+    Callback = function(Value)
+        LockInterval = Value
+    end,
+})
+
+RunService.RenderStepped:Connect(function()
+    if Library.Toggles.LockOnAura
+        and Library.Toggles.LockOnAura.Value then
+
+        UpdateRange()
+    end
+end)
+
+--==========================================================
+-- SHOW TIME DIE
+--==========================================================
+
+local TimeDieGui
+
+local function RemoveTimeDie()
+    if TimeDieGui then
+        TimeDieGui:Destroy()
+        TimeDieGui = nil
+    end
+end
+
+local function CreateTimeDie()
+    RemoveTimeDie()
+
+    local root = GetCharacterRoot()
+    if not root then
+        return
+    end
+
+    TimeDieGui = Instance.new("BillboardGui")
+    TimeDieGui.Name = "ShowTimeDie"
+    TimeDieGui.AlwaysOnTop = true
+    TimeDieGui.Size = UDim2.fromOffset(260, 60)
+    TimeDieGui.StudsOffset = Vector3.new(0, 4, 0)
+    TimeDieGui.Parent = root
+
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Size = UDim2.fromScale(1, 1)
+    label.TextScaled = true
+    label.Font = Enum.Font.GothamBold
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextStrokeTransparency = 0
+    label.Parent = TimeDieGui
+end
+
+FloorsLeft:AddToggle("ShowTimeDie", {
+    Text = "Show Time Die",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then
+            RemoveTimeDie()
+            return
+        end
+
+        CreateTimeDie()
+
+        task.spawn(function()
+
+            local lastHealth = nil
+            local lastTime = nil
+            local damagePerSecond = 0
+
+            while Library.Toggles.ShowTimeDie.Value do
+
+                local target = GetNearestTarget(99999)
+                local hum =
+                    target
+                    and target:FindFirstChildOfClass("Humanoid")
+
+                if hum then
+                    local health = hum.Health
+                    local now = tick()
+
+                    if lastHealth
+                        and lastTime
+                        and health < lastHealth then
+
+                        local damage =
+                            lastHealth - health
+
+                        local dt =
+                            math.max(now - lastTime, 0.01)
+
+                        damagePerSecond =
+                            damage / dt
+                    end
+
+                    lastHealth = health
+                    lastTime = now
+
+                    if TimeDieGui
+                        and TimeDieGui:FindFirstChildOfClass("TextLabel") then
+
+                        local label =
+                            TimeDieGui:FindFirstChildOfClass("TextLabel")
+
+                        if damagePerSecond > 0 then
+                            local seconds =
+                                health / damagePerSecond
+
+                            label.Text =
+                                string.format(
+                                    "%s\nHP: %.0f | ~%.1fs",
+                                    target.Name,
+                                    health,
+                                    seconds
+                                )
+                        else
+                            label.Text =
+                                string.format(
+                                    "%s\nHP: %.0f | --",
+                                    target.Name,
+                                    health
+                                )
+                        end
+                    end
+                end
+
+                task.wait(0.1)
+            end
+
+            RemoveTimeDie()
+        end)
+    end,
+})
+
+--==========================================================
+-- SHOW HIT
+--==========================================================
+
+local HitConnections = {}
+local HitObjects = {}
+
+local function HitColor(hit)
+    local colors = {
+        Color3.fromRGB(255,255,255),
+        Color3.fromRGB(0,255,0),
+        Color3.fromRGB(0,170,255),
+        Color3.fromRGB(170,0,255),
+        Color3.fromRGB(255,170,0),
+        Color3.fromRGB(255,0,0),
+    }
+
+    return colors[
+        math.clamp(hit, 1, #colors)
+    ]
+end
+
+local function ShowHit(target, hit)
+    local root = GetRoot(target)
+
+    if not root then
+        return
+    end
+
+    if HitObjects[target] then
+        HitObjects[target]:Destroy()
+    end
+
+    local gui = Instance.new("BillboardGui")
+    gui.Name = "HitCounter"
+    gui.AlwaysOnTop = true
+    gui.Size = UDim2.fromOffset(120, 50)
+    gui.StudsOffset = Vector3.new(0, 4, 0)
+    gui.Parent = root
+
+    local text = Instance.new("TextLabel")
+    text.BackgroundTransparency = 1
+    text.Size = UDim2.fromScale(1, 1)
+    text.Text = "-" .. tostring(hit)
+    text.TextScaled = true
+    text.Font = Enum.Font.GothamBold
+    text.TextColor3 = HitColor(hit)
+    text.TextStrokeTransparency = 0
+    text.Parent = gui
+
+    HitObjects[target] = gui
+
+    task.delay(10, function()
+        if HitObjects[target] == gui then
+            HitObjects[target] = nil
+            gui:Destroy()
+        end
+    end)
+end
+
+local function WatchTarget(target)
+    if not target then
+        return
+    end
+
+    local hum = target:FindFirstChildOfClass("Humanoid")
+
+    if not hum then
+        return
+    end
+
+    if HitConnections[hum] then
+        return
+    end
+
+    local oldHealth = hum.Health
+    local hitCount = 0
+
+    HitConnections[hum] =
+        hum.HealthChanged:Connect(function(newHealth)
+
+            if newHealth < oldHealth then
+                hitCount += 1
+
+                if Library.Toggles.ShowHit.Value then
+                    ShowHit(target, hitCount)
+                end
+            end
+
+            oldHealth = newHealth
+        end)
+end
+
+FloorsLeft:AddToggle("ShowHit", {
+    Text = "Show Hit",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then
+            for _, gui in pairs(HitObjects) do
+                if gui then
+                    gui:Destroy()
+                end
+            end
+
+            table.clear(HitObjects)
+            return
+        end
+
+        task.spawn(function()
+
+            while Library.Toggles.ShowHit.Value do
+
+                local mobs = workspace:FindFirstChild("World Mobs")
+
+                if mobs then
+                    for _, folder in ipairs(mobs:GetChildren()) do
+                        for _, mob in ipairs(folder:GetChildren()) do
+                            WatchTarget(mob)
+                        end
+                    end
+                end
+
+                local chars =
+                    workspace:FindFirstChild("Characters")
+
+                if chars then
+                    for _, char in ipairs(chars:GetChildren()) do
+                        if char.Name ~= LP.Name then
+                            WatchTarget(char)
+                        end
+                    end
+                end
+
+                task.wait(0.5)
+            end
+        end)
+    end,
+})
+
+--==========================================================
+-- AUTO RAID GODMODE [SLOW WIN]
+--==========================================================
+
+local RaidPosition =
+    CFrame.new(
+        -388.906708,
+        1551.28235,
+        51.3806343,
+        1, 0, 0,
+        0, 1, 0,
+        0, 0, 1
+    )
+
+FloorsAuto:AddToggle("AutoRaidGodmode", {
+    Text = "Auto Raid Godmode [Slow Win]",
+    Default = false,
+
+    Callback = function(Value)
+
+        if Value then
+            task.spawn(function()
+
+                while Library.Toggles.AutoRaidGodmode.Value do
+
+                    local root = GetCharacterRoot()
+
+                    if root then
+                        root.CFrame = RaidPosition
+                        root.AssemblyLinearVelocity =
+                            Vector3.zero
+                    end
+
+                    task.wait(0.15)
+                end
+            end)
+        end
+    end,
+})
+
+--==========================================================
+-- AUTO DUNGEON [NORMAL]
+--==========================================================
+
+FloorsAuto:AddToggle("AutoDungeonNormal", {
+    Text = "Auto Dungeon [Normal]",
+    Default = false,
+
+    Callback = function(Value)
+
+        if Value then
+            task.spawn(function()
+
+                while Library.Toggles.AutoDungeonNormal.Value do
+
+                    local root = GetCharacterRoot()
+
+                    if root then
+
+                        local target =
+                            GetNearestTarget(99999)
+
+                        local targetRoot =
+                            target and GetRoot(target)
+
+                        if targetRoot then
+
+                            local targetPos =
+                                targetRoot.Position
+
+                            local above =
+                                targetPos
+                                + Vector3.new(0, 12, 0)
+
+                            local targetCF =
+                                CFrame.lookAt(
+                                    above,
+                                    targetPos
+                                )
+
+                            local distance =
+                                (root.Position - above).Magnitude
+
+                            local duration =
+                                math.clamp(
+                                    distance / 250,
+                                    0.05,
+                                    0.35
+                                )
+
+                            local tween =
+                                TweenService:Create(
+                                    root,
+                                    TweenInfo.new(
+                                        duration,
+                                        Enum.EasingStyle.Linear
+                                    ),
+                                    {
+                                        CFrame = targetCF
+                                    }
+                                )
+
+                            tween:Play()
+                            tween.Completed:Wait()
+
+                            root.AssemblyLinearVelocity =
+                                Vector3.zero
+                        end
+                    end
+
+                    task.wait(0.03)
+                end
+            end)
+        end
+    end,
+})
+
+--==========================================================
+-- HITBOX ATOM
+--==========================================================
+
+local AtomOriginalSize = nil
+
+FloorsAuto:AddToggle("HitboxAtom", {
+    Text = "Hitbox Atom",
+    Default = false,
+
+    Callback = function(Value)
+
+        task.spawn(function()
+
+            while Library.Toggles.HitboxAtom.Value do
+
+                local eventMobs =
+                    workspace:FindFirstChild("World Mobs")
+                    and workspace["World Mobs"]
+                        :FindFirstChild("Event Mobs")
+
+                local atom =
+                    eventMobs
+                    and eventMobs:FindFirstChild("Atom Max")
+
+                local root =
+                    atom and GetRoot(atom)
+
+                if root then
+
+                    if not AtomOriginalSize then
+                        AtomOriginalSize = root.Size
+                    end
+
+                    root.Size =
+                        Vector3.new(40, 40, 40)
+
+                    root.CanCollide = false
+                    root.Massless = true
+                end
+
+                task.wait(0.1)
+            end
+
+            local eventMobs =
+                workspace:FindFirstChild("World Mobs")
+                and workspace["World Mobs"]
+                    :FindFirstChild("Event Mobs")
+
+            local atom =
+                eventMobs
+                and eventMobs:FindFirstChild("Atom Max")
+
+            local root =
+                atom and GetRoot(atom)
+
+            if root and AtomOriginalSize then
+                root.Size = AtomOriginalSize
+            end
+
+            AtomOriginalSize = nil
+        end)
+    end,
+})
+
+--==========================================================
+-- AUTO ENERGY
+--==========================================================
+
+FloorsAuto:AddToggle("AutoEnergy", {
+    Text = "Auto Energy",
+    Default = false,
+
+    Callback = function(Value)
+
+        if Value then
+            task.spawn(function()
+
+                while Library.Toggles.AutoEnergy.Value do
+
+                    local charFolder =
+                        workspace:FindFirstChild("Characters")
+
+                    local char =
+                        charFolder
+                        and charFolder:FindFirstChild(LP.Name)
+
+                    local status =
+                        char
+                        and char:FindFirstChild("Status")
+
+                    local current =
+                        status
+                        and status:FindFirstChild("CurrentEnergy")
+
+                    local max =
+                        status
+                        and status:FindFirstChild("MaxEnergy")
+
+                    local currentValue =
+                        current and tonumber(current.Value)
+
+                    local maxValue =
+                        max and tonumber(max.Value)
+
+                    if currentValue
+                        and maxValue
+                        and maxValue > 0 then
+
+                        local percent =
+                            currentValue / maxValue
+
+                        if percent < 0.10 then
+
+                            local root =
+                                GetCharacterRoot()
+
+                            if root then
+
+                                local camera =
+                                    workspace.CurrentCamera
+
+                                local args = {
+                                    [1] = {
+                                        ["Camera"] =
+                                            camera.CFrame,
+
+                                        ["SkillId"] = "2",
+
+                                        ["Began"] = true,
+
+                                        ["CFrame"] =
+                                            root.CFrame,
+
+                                        ["Typ\208\181"] = 1,
+
+                                        ["Aim"] =
+                                            root.Position
+                                            + camera.CFrame.LookVector * 100
+                                    }
+                                }
+
+                                pcall(function()
+                                    SkillRemote:FireServer(
+                                        unpack(args)
+                                    )
+                                end)
+                            end
+
+                            task.wait(0.1)
+
+                        elseif percent >= 1 then
+                            task.wait(0.1)
+                        else
+                            task.wait(0.05)
+                        end
+
+                    else
+                        task.wait(0.2)
+                    end
+                end
+            end)
+        end
+    end,
+})
+
+--==========================================================
+-- AUTO COLLECT STARDUST ORB
+--==========================================================
+
+FloorsBypass:AddToggle("AutoCollectStardust", {
+    Text = "Auto Collect Stardust Orb",
+    Default = false,
+
+    Callback = function(Value)
+
+        if Value then
+            task.spawn(function()
+
+                local index = 1
+
+                while Library.Toggles.AutoCollectStardust.Value do
+
+                    local folder =
+                        workspace:FindFirstChild("Misc")
+                        and workspace.Misc
+                            :FindFirstChild("DragonSphereSpawns")
+
+                    if folder then
+
+                        local parts = {}
+
+                        for _, obj in ipairs(folder:GetChildren()) do
+                            if obj:IsA("BasePart") then
+                                table.insert(parts, obj)
+                            end
+                        end
+
+                        table.sort(parts, function(a, b)
+                            return a.Name < b.Name
+                        end)
+
+                        if #parts > 0 then
+
+                            if index > #parts then
+                                index = 1
+                            end
+
+                            local root =
+                                GetCharacterRoot()
+
+                            if root then
+                                root.CFrame =
+                                    parts[index].CFrame
+                                    + Vector3.new(0, 3, 0)
+
+                                root.AssemblyLinearVelocity =
+                                    Vector3.zero
+                            end
+
+                            index += 1
+                        end
+                    end
+
+                    task.wait(10)
+                end
+            end)
+        end
+    end,
+})
+
+--==========================================================
+-- REMOVE DIE [NOT DUNGEON]
+--==========================================================
+
+FloorsBypass:AddToggle("RemoveDie", {
+    Text = "Remove Die [Not Dungeon]",
+    Default = false,
+
+    Callback = function(Value)
+
+        if Value then
+            task.spawn(function()
+
+                while Library.Toggles.RemoveDie.Value do
+
+                    local char = LP.Character
+                    local hum =
+                        char
+                        and char:FindFirstChildOfClass("Humanoid")
+
+                    local root =
+                        char
+                        and char:FindFirstChild("HumanoidRootPart")
+
+                    if hum and root then
+
+                        local isDungeon =
+                            workspace:FindFirstChild("Dungeon")
+                            or workspace:FindFirstChild("Dungeons")
+
+                        if not isDungeon
+                            and hum.MaxHealth > 0 then
+
+                            local hp =
+                                hum.Health / hum.MaxHealth
+
+                            if hp <= 0.08 then
+
+                                root.CFrame =
+                                    root.CFrame
+                                    + Vector3.new(0, 300, 0)
+
+                                root.AssemblyLinearVelocity =
+                                    Vector3.zero
+                            end
+                        end
+                    end
+
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end,
+})
+
+--==========================================================
+-- REMOVE BARRIER
+--==========================================================
+
+FloorsBypass:AddToggle("RemoveBarrier", {
+    Text = "Remove Barrier",
+    Default = false,
+
+    Callback = function(Value)
+
+        local barriers =
+            workspace:FindFirstChild("World Barriers")
+
+        if not barriers then
+            return
+        end
+
+        if Value then
+
+            for _, obj in ipairs(barriers:GetDescendants()) do
+                if obj:IsA("BasePart")
+                    or obj:IsA("Model") then
+
+                    pcall(function()
+                        obj:Destroy()
+                    end)
+                end
+            end
+
+        end
+    end,
+})
+
+--==========================================================
+-- ANTI LAG
+--==========================================================
+
+local HiddenVisuals = {}
+
+local function HideVisuals(container)
+    if not container then
+        return
+    end
+
+    for _, obj in ipairs(container:GetDescendants()) do
+
+        if obj:IsA("ParticleEmitter")
+            or obj:IsA("Trail")
+            or obj:IsA("Beam")
+            or obj:IsA("Smoke")
+            or obj:IsA("Fire")
+            or obj:IsA("Sparkles") then
+
+            if HiddenVisuals[obj] == nil then
+                HiddenVisuals[obj] = obj.Enabled
+            end
+
+            obj.Enabled = false
+        end
+    end
+end
+
+local function RestoreVisuals()
+
+    for obj, oldValue in pairs(HiddenVisuals) do
+        if obj and obj.Parent then
+            obj.Enabled = oldValue
+        end
+    end
+
+    table.clear(HiddenVisuals)
+end
+
+FloorsBypass:AddToggle("AntiLag", {
+    Text = "Anti Lag",
+    Default = false,
+
+    Callback = function(Value)
+
+        if Value then
+
+            task.spawn(function()
+
+                while Library.Toggles.AntiLag.Value do
+
+                    HideVisuals(workspace:FindFirstChild("World Mobs"))
+                    HideVisuals(LP.Character)
+
+                    task.wait(1)
+                end
+
+                RestoreVisuals()
+            end)
+
+        else
+            RestoreVisuals()
+        end
+    end,
+})
+
+--==========================================================
+-- AUTO FORM
+--==========================================================
+
+FloorsCompletion:AddToggle("AutoForm", {
+    Text = "Auto Form",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then
+            return
+        end
+
+        task.spawn(function()
+
+            while Library.Toggles.AutoForm.Value do
+
+                local char =
+                    workspace:FindFirstChild("Characters")
+                    and workspace.Characters:FindFirstChild(LP.Name)
+
+                local status =
+                    char
+                    and char:FindFirstChild("Status")
+
+                local mode =
+                    status
+                    and status:FindFirstChild("Mode")
+
+                -- đọc Mode hiện tại
+                -- phần kích hoạt Form phụ thuộc remote của game
+                -- nên không tự gọi remote chưa xác định.
+
+                if mode then
+                    local currentMode =
+                        tostring(mode.Value)
+
+                    if Library.Toggles.ShowTimeDie
+                        and Library.Toggles.ShowTimeDie.Value then
+
+                        -- giữ Mode được cập nhật liên tục
+                        Library:Notify({
+                            Title = "Auto Form",
+                            Description =
+                                "Mode: "
+                                .. currentMode,
+                            Time = 1
+                        })
+                    end
+                end
+
+                task.wait(1)
+            end
+        end)
+    end,
+})
+
+--==========================================================
+-- CLEANUP
+--==========================================================
+
+Library:OnUnload(function()
+
+    DestroyRange()
+    RemoveTimeDie()
+    RestoreVisuals()
+
+    for _, connection in pairs(HitConnections) do
+        pcall(function()
+            connection:Disconnect()
+        end)
+    end
+
+    table.clear(HitConnections)
+
+    for _, gui in pairs(HitObjects) do
+        if gui then
+            gui:Destroy()
+        end
+    end
+
+    table.clear(HitObjects)
+end)
+
+print("[Abyssall] Floors Tab 3 loaded.")
