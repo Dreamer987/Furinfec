@@ -3132,7 +3132,7 @@ FloorsAuto:AddToggle("AutoDungeonNormal", {
 
                             local above =
                                 targetPos
-                                + Vector3.new(0, 12, 0)
+                                + Vector3.new(0, 5, 0)
 
                             local targetCF =
                                 CFrame.lookAt(
