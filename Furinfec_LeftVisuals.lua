@@ -3808,3 +3808,182 @@ Automation:AddToggle("AutoSkill10", {
         end)
     end,
 })
+--==================================================
+-- AUTO START + AUTO READY
+-- Automation - Tab 3
+--==================================================
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+--==================================================
+-- AUTO START
+--==================================================
+
+local StartDungeon =
+    ReplicatedStorage
+        :WaitForChild("Packages")
+        :WaitForChild("_Index")
+        :WaitForChild("sleitnick_knit@1.4.7")
+        :WaitForChild("knit")
+        :WaitForChild("Services")
+        :WaitForChild("DungeonLobbyService")
+        :WaitForChild("RF")
+        :WaitForChild("StartDungeon")
+
+local Bosses = {
+    "Garriot",
+    "Great Droid",
+    "Atom Max",
+    "Mecha Soldier"
+}
+
+local startedBosses = {}
+
+Automation:AddToggle("AutoStart", {
+    Text = "Auto Start",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then
+            table.clear(startedBosses)
+            return
+        end
+
+        task.spawn(function()
+
+            while Library.Toggles.AutoStart.Value do
+
+                local WorldMobs =
+                    workspace:FindFirstChild("World Mobs")
+
+                local EventMobs =
+                    WorldMobs
+                    and WorldMobs:FindFirstChild("Event Mobs")
+
+                if EventMobs then
+
+                    for _, BossName in ipairs(Bosses) do
+
+                        if not Library.Toggles.AutoStart.Value then
+                            break
+                        end
+
+                        local Boss =
+                            EventMobs:FindFirstChild(BossName)
+
+                        if Boss then
+
+                            local Humanoid =
+                                Boss:FindFirstChildOfClass("Humanoid")
+
+                            if Humanoid then
+
+                                -- Boss còn sống
+                                if Humanoid.Health > 0 then
+                                    startedBosses[BossName] = true
+                                end
+
+                                -- Boss chết
+                                if Humanoid.Health <= 0
+                                    and startedBosses[BossName] then
+
+                                    startedBosses[BossName] = false
+
+                                    -- Đợi 4.04 giây
+                                    task.wait(4.04)
+
+                                    if Library.Toggles.AutoStart.Value then
+                                        pcall(function()
+                                            StartDungeon:InvokeServer()
+                                        end)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+
+                task.wait(0.15)
+            end
+        end)
+    end,
+})
+
+
+--==================================================
+-- AUTO READY
+--==================================================
+
+local EventMobs =
+    workspace
+        :WaitForChild("World Mobs")
+        :WaitForChild("Event Mobs")
+
+Automation:AddToggle("AutoReady", {
+    Text = "Auto Ready",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then
+            return
+        end
+
+        task.spawn(function()
+
+            while Library.Toggles.AutoReady.Value do
+
+                -- Event Mobs phải hoàn toàn trống
+                if #EventMobs:GetChildren() == 0 then
+
+                    local Dungeon =
+                        workspace:FindFirstChild("Dungeon")
+
+                    if Dungeon then
+
+                        local Stages =
+                            Dungeon:FindFirstChild("Stages")
+
+                        local Stage0 =
+                            Stages
+                            and Stages:FindFirstChild("0")
+
+                        local NextArea =
+                            Stage0
+                            and Stage0:FindFirstChild("NextArea")
+
+                        -- Container bắt buộc tồn tại
+                        local Container =
+                            NextArea
+                            and NextArea:FindFirstChild("Container")
+
+                        if Container then
+
+                            local Pad =
+                                NextArea:FindFirstChild(
+                                    "DungeonNextAreaPad"
+                                )
+
+                            local RE =
+                                Pad
+                                and Pad:FindFirstChild("RE")
+
+                            local Interact =
+                                RE
+                                and RE:FindFirstChild("Interact")
+
+                            if Interact then
+                                pcall(function()
+                                    Interact:FireServer()
+                                end)
+                            end
+                        end
+                    end
+                end
+
+                task.wait(0.15)
+            end
+        end)
+    end,
+})
