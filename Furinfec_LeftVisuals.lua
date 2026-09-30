@@ -3987,3 +3987,621 @@ Automation:AddToggle("AutoReady", {
         end)
     end,
 })
+--==================================================
+-- TAB 4
+--==================================================
+
+local Tab4 = Window:AddTab("Misc", "sparkles")
+
+local Miscellaneous = Tab4:AddLeftGroupbox("Miscellaneous")
+local Automation4 = Tab4:AddLeftGroupbox("Automation")
+
+local Notifiers = Tab4:AddRightGroupbox("Notifiers")
+local Auras = Tab4:AddRightGroupbox("Auras")
+
+--==================================================
+-- SERVICES
+--==================================================
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+
+local function GetRoot()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+--==================================================
+-- MISCELLANEOUS
+--==================================================
+
+-- Auto Proximity Prompt
+Miscellaneous:AddToggle("InstantPrompt", {
+    Text = "Instant Proximity Prompt",
+    Default = false,
+
+    Callback = function(Value)
+        if not Value then return end
+
+        task.spawn(function()
+            while Library.Toggles.InstantPrompt.Value do
+
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("ProximityPrompt") then
+                        pcall(function()
+                            obj.HoldDuration = 0
+                        end)
+                    end
+                end
+
+                task.wait(1)
+            end
+        end)
+    end,
+})
+
+-- Anti Void
+Miscellaneous:AddToggle("AntiVoid", {
+    Text = "Remove the roblox void",
+    Default = false,
+
+    Callback = function(Value)
+        if not Value then return end
+
+        task.spawn(function()
+            while Library.Toggles.AntiVoid.Value do
+
+                local root = GetRoot()
+
+                if root and root.Position.Y < -50 then
+                    root.CFrame =
+                        root.CFrame + Vector3.new(0, 300, 0)
+                end
+
+                task.wait(0.1)
+            end
+        end)
+    end,
+})
+
+-- Disable Cutscenes
+Miscellaneous:AddToggle("DisableCutscenes", {
+    Text = "Disable Cutscenes",
+    Default = false,
+
+    Callback = function(Value)
+        if not Value then return end
+
+        task.spawn(function()
+            while Library.Toggles.DisableCutscenes.Value do
+
+                local camera = workspace.CurrentCamera
+
+                if camera then
+                    camera.FieldOfView =
+                        math.clamp(camera.FieldOfView, 50, 100)
+                end
+
+                task.wait(0.2)
+            end
+        end)
+    end,
+})
+
+--==================================================
+-- KILL MINI DROID
+--==================================================
+
+local SkillRemote =
+    ReplicatedStorage
+        :WaitForChild("Remotes")
+        :WaitForChild("SkillRemote")
+
+Miscellaneous:AddToggle("KillMiniDroid", {
+    Text = "Kill Mini Droid",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then
+            return
+        end
+
+        task.spawn(function()
+
+            while Library.Toggles.KillMiniDroid.Value do
+
+                local EventMobs =
+                    workspace:FindFirstChild("World Mobs")
+                    and workspace["World Mobs"]:FindFirstChild("Event Mobs")
+
+                local MiniDroid =
+                    EventMobs
+                    and EventMobs:FindFirstChild("CustomMob")
+
+                if MiniDroid then
+
+                    local root = GetRoot()
+
+                    if root then
+
+                        local camera =
+                            workspace.CurrentCamera
+
+                        local args = {
+                            [1] = {
+                                ["Camera"] = camera.CFrame,
+                                ["SkillId"] = "116",
+                                ["Began"] = true,
+                                ["CFrame"] = root.CFrame,
+                                ["Typ\208\181"] = 1,
+                                ["Aim"] =
+                                    root.Position
+                                    + camera.CFrame.LookVector * 100
+                            }
+                        }
+
+                        pcall(function()
+                            SkillRemote:FireServer(unpack(args))
+                        end)
+
+                        task.wait(0.05)
+
+                        args[1]["Began"] = false
+
+                        pcall(function()
+                            SkillRemote:FireServer(unpack(args))
+                        end)
+                    end
+                end
+
+                task.wait(0.1)
+            end
+        end)
+    end,
+})
+
+--==================================================
+-- AUTOMATION
+--==================================================
+
+-- Auto Lobby delay
+Automation4:AddInput("AutoLobbyTime", {
+    Default = "10",
+    Numeric = true,
+    Finished = false,
+    Text = "Auto Lobby Time",
+    Placeholder = "Seconds",
+})
+
+local ReturnToWorld =
+    ReplicatedStorage
+        :WaitForChild("Packages")
+        :WaitForChild("_Index")
+        :WaitForChild("sleitnick_knit@1.4.7")
+        :WaitForChild("knit")
+        :WaitForChild("Services")
+        :WaitForChild("DungeonService")
+        :WaitForChild("RF")
+        :WaitForChild("ReturnToWorld")
+
+Automation4:AddToggle("AutoLobby", {
+    Text = "Auto Lobby",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then
+            return
+        end
+
+        task.spawn(function()
+
+            local delayTime =
+                tonumber(Library.Options.AutoLobbyTime.Value)
+                or 10
+
+            task.wait(delayTime)
+
+            if Library.Toggles.AutoLobby.Value then
+                pcall(function()
+                    ReturnToWorld:InvokeServer()
+                end)
+            end
+        end)
+    end,
+})
+
+--==================================================
+-- SHOP BUY
+--==================================================
+
+local BuyItem =
+    ReplicatedStorage
+        :WaitForChild("Packages")
+        :WaitForChild("_Index")
+        :WaitForChild("sleitnick_knit@1.4.7")
+        :WaitForChild("knit")
+        :WaitForChild("Services")
+        :WaitForChild("NPCShopService")
+        :WaitForChild("RE")
+        :WaitForChild("BuyItem")
+
+local function BuyUpgrade(ID)
+
+    pcall(function()
+        BuyItem:FireServer(
+            ID,
+            "Ticket_Exchange",
+            1,
+            1
+        )
+    end)
+end
+
+-- +50% Damage
+Automation4:AddToggle("AutoDamage", {
+    Text = "Auto Buy +50% Dame",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then return end
+
+        task.spawn(function()
+            while Library.Toggles.AutoDamage.Value do
+                BuyUpgrade(1)
+                task.wait(0.15)
+            end
+        end)
+    end,
+})
+
+-- +1 Lucky
+Automation4:AddToggle("AutoLucky", {
+    Text = "Auto Buy +1 Lucky",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then return end
+
+        task.spawn(function()
+            while Library.Toggles.AutoLucky.Value do
+                BuyUpgrade(2)
+                task.wait(0.15)
+            end
+        end)
+    end,
+})
+
+-- +1 Drop
+Automation4:AddToggle("AutoDrop", {
+    Text = "Auto Buy +1 Drop",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then return end
+
+        task.spawn(function()
+            while Library.Toggles.AutoDrop.Value do
+                BuyUpgrade(3)
+                task.wait(0.15)
+            end
+        end)
+    end,
+})
+
+-- Major Drop
+Automation4:AddToggle("AutoMajorDrop", {
+    Text = "Auto Buy Major Drop",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then return end
+
+        task.spawn(function()
+            while Library.Toggles.AutoMajorDrop.Value do
+                BuyUpgrade(4)
+                task.wait(0.15)
+            end
+        end)
+    end,
+})
+
+--==================================================
+-- AUTO JOIN DUNGEON
+--==================================================
+
+local DungeonLobbyService =
+    ReplicatedStorage
+        :WaitForChild("Packages")
+        :WaitForChild("_Index")
+        :WaitForChild("sleitnick_knit@1.4.7")
+        :WaitForChild("knit")
+        :WaitForChild("Services")
+        :WaitForChild("DungeonLobbyService")
+
+local CreateLobby =
+    DungeonLobbyService.RF.CreateLobby
+
+local StartDungeon =
+    DungeonLobbyService.RF.StartDungeon
+
+local DungeonIdSelected = 1
+local Difficulty = 1
+
+local ModeList = {
+    Mecha = 1,
+    Atom = 2,
+    Droid = 3,
+    Hideout = 4
+}
+
+local DifficultyList = {
+    Easy = 1,
+    Normal = 2,
+    Hard = 3,
+    Hell = 4
+}
+
+Notifiers:AddDropdown("ChooseMode4", {
+    Values = {
+        "Mecha",
+        "Atom",
+        "Droid",
+        "Hideout"
+    },
+
+    Default = "Mecha",
+    Multi = false,
+    Text = "Choose Mode",
+
+    Callback = function(Value)
+        DungeonIdSelected =
+            ModeList[Value] or 1
+    end,
+})
+
+Notifiers:AddDropdown("ChooseDifficulty4", {
+    Values = {
+        "Easy",
+        "Normal",
+        "Hard",
+        "Hell"
+    },
+
+    Default = "Easy",
+    Multi = false,
+    Text = "Difficulty",
+
+    Callback = function(Value)
+        Difficulty =
+            DifficultyList[Value] or 1
+    end,
+})
+
+local function JoinDungeon()
+
+    local args = {
+        [1] = {
+            ["DungeonIdSelected"] =
+                DungeonIdSelected,
+
+            ["DungeonStats"] = {
+                ["Difficulty"] =
+                    Difficulty
+            }
+        }
+    }
+
+    pcall(function()
+        CreateLobby:InvokeServer(unpack(args))
+    end)
+
+    task.wait(10)
+
+    pcall(function()
+        StartDungeon:InvokeServer(unpack(args))
+    end)
+end
+
+-- Notification Sound -> Auto Join Dungeon
+Notifiers:AddToggle("AutoJoinDungeon", {
+    Text = "Auto Join Dungeon",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then
+            return
+        end
+
+        task.spawn(function()
+
+            while Library.Toggles.AutoJoinDungeon.Value do
+                JoinDungeon()
+                task.wait(11)
+            end
+        end)
+    end,
+})
+
+-- Notify Entity -> Auto Join
+Notifiers:AddToggle("AutoJoinEntity", {
+    Text = "Auto Join",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then
+            return
+        end
+
+        task.spawn(function()
+
+            while Library.Toggles.AutoJoinEntity.Value do
+                JoinDungeon()
+                task.wait(11)
+            end
+        end)
+    end,
+})
+
+--==================================================
+-- CUSTOM AURAS
+--==================================================
+
+local function GetNearestPrompt(maxDistance)
+
+    local root = GetRoot()
+
+    if not root then
+        return nil
+    end
+
+    local nearest = nil
+    local distance = maxDistance
+
+    for _, obj in ipairs(workspace:GetDescendants()) do
+
+        if obj:IsA("ProximityPrompt") then
+
+            local parent =
+                obj.Parent
+
+            local part =
+                parent:IsA("BasePart")
+                and parent
+                or parent:FindFirstChildWhichIsA("BasePart")
+
+            if part then
+
+                local d =
+                    (part.Position - root.Position).Magnitude
+
+                if d <= distance then
+                    nearest = obj
+                    distance = d
+                end
+            end
+        end
+    end
+
+    return nearest
+end
+
+-- Lever / Valve Aura
+Auras:AddToggle("LeverValveAura", {
+    Text = "Lever/Valve Aura",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then return end
+
+        task.spawn(function()
+
+            while Library.Toggles.LeverValveAura.Value do
+
+                local prompt =
+                    GetNearestPrompt(15)
+
+                if prompt then
+                    pcall(function()
+                        fireproximityprompt(prompt)
+                    end)
+                end
+
+                task.wait(0.2)
+            end
+        end)
+    end,
+})
+
+-- Loot Aura
+Auras:AddToggle("LootAura", {
+    Text = "Loot Aura",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then return end
+
+        task.spawn(function()
+
+            while Library.Toggles.LootAura.Value do
+
+                local prompt =
+                    GetNearestPrompt(12)
+
+                if prompt then
+                    pcall(function()
+                        fireproximityprompt(prompt)
+                    end)
+                end
+
+                task.wait(0.2)
+            end
+        end)
+    end,
+})
+
+-- Books / Breakers Aura
+Auras:AddToggle("BooksBreakersAura", {
+    Text = "Books/Breakers Aura",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then return end
+
+        task.spawn(function()
+
+            while Library.Toggles.BooksBreakersAura.Value do
+
+                local prompt =
+                    GetNearestPrompt(20)
+
+                if prompt then
+                    pcall(function()
+                        fireproximityprompt(prompt)
+                    end)
+                end
+
+                task.wait(0.15)
+            end
+        end)
+    end,
+})
+
+-- Locked Door Aura
+Auras:AddToggle("LockedDoorAura", {
+    Text = "Locked Door Aura",
+    Default = false,
+
+    Callback = function(Value)
+
+        if not Value then return end
+
+        task.spawn(function()
+
+            while Library.Toggles.LockedDoorAura.Value do
+
+                local prompt =
+                    GetNearestPrompt(10)
+
+                if prompt then
+                    pcall(function()
+                        fireproximityprompt(prompt)
+                    end)
+                end
+
+                task.wait(0.25)
+            end
+        end)
+    end,
+})
